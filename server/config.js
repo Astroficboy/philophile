@@ -17,7 +17,7 @@ export const config = {
   },
   ollama: {
     host: process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
-    model: process.env.OLLAMA_MODEL || 'gemma4:12b',
+    model: process.env.OLLAMA_MODEL || 'gemma4:12b', // falls back to any installed gemma4 tag,
     timeoutMs: Number(process.env.OLLAMA_TIMEOUT_MS) || 180000,
   },
 };
