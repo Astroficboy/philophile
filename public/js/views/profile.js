@@ -145,9 +145,9 @@ async function timelineTab(el, p) {
   const data = await api.personalTimeline(p.id);
   el.innerHTML = `<h2>The life and times of ${esc(p.name)}</h2><div></div>`;
   const box = el.querySelector('div');
-  renderLifeline(box, data, { onSelect: (d) => { location.hash = `#/philosopher/${encodeURIComponent(d.id)}?from=${encodeURIComponent(p.id)}`; } });
-  const redraw = () => renderLifeline(box, data, { onSelect: (d) => { location.hash = `#/philosopher/${encodeURIComponent(d.id)}?from=${encodeURIComponent(p.id)}`; } });
-  window.addEventListener('themechange', redraw, { once: true });
+  const draw = () => renderLifeline(box, data, { onSelect: (d) => { location.hash = `#/philosopher/${encodeURIComponent(d.id)}?from=${encodeURIComponent(p.id)}`; } });
+  draw();
+  window.addEventListener('themechange', draw, { once: true });
 }
 
 async function encyclopedia(el, p, query) {

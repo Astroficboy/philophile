@@ -39,7 +39,7 @@ function normName(s) {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
-    .replace(/\(.*?\)/g, '')
+    .replace(/\(.*?\)|\[.*?\]/g, '')
     .replace(/[^a-z ]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

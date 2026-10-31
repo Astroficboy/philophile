@@ -117,9 +117,9 @@ function addMentions(people, texts) {
   }
 }
 
-// "Kant, Immanuel" -> "Kant"; "Aristotle" -> "Aristotle"; "Beauvoir, Simone de" -> "Beauvoir"
+// "Kant, Immanuel" -> "Kant"; "Abelard [Abailard], Peter" -> "Abelard"; "Beauvoir, Simone de" -> "Beauvoir"
 function mentionKey(p) {
-  const head = p.label.split(',')[0].trim();
+  const head = p.label.split(',')[0].replace(/\[.*?\]|\(.*?\)/g, '').trim();
   return head.split(/\s+/).length <= 2 ? head : null;
 }
 
