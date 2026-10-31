@@ -127,8 +127,15 @@ function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function firstSentences(text, n) {
+// Sentence ends are a ., ! or ? followed by a capitalised word, but not after
+// abbreviations such as "B.C.E.", "c.", "e.g." or a single initial.
+export function firstSentences(text, n) {
   if (!text) return '';
-  const parts = text.match(/[^.!?]+[.!?]+(\s|$)/g) || [text];
-  return parts.slice(0, n).join('').trim().slice(0, 600);
+  const ends = /(?<!\b(?:[A-Z]|[A-Z]\.[A-Z]|c|ca|cf|e\.g|i\.e|vol|St|Mr|Dr|fl|b|d))[.!?](?=\s+[A-ZÀ-ɏ“"(])/g;
+  let count = 0;
+  let m;
+  while ((m = ends.exec(text))) {
+    if (++count === n) return text.slice(0, m.index + 1).trim().slice(0, 600);
+  }
+  return text.trim().slice(0, 600);
 }
