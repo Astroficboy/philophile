@@ -1,0 +1,22 @@
+{
+  "name": "philophile",
+  "version": "0.1.0",
+  "description": "A philosophy learning app: philosopher profiles, timelines, era influence heatmaps, Stanford Encyclopedia of Philosophy content and a local Ollama tutor.",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "sync": "node scripts/sync-sep.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "d3": "^7.9.0",
+    "express": "^4.22.3"
+  }
+}
