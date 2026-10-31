@@ -58,16 +58,23 @@ function showEra(root, data, id) {
     <a href="#/philosophers?era=${id}">All philosophers of this era →</a></div>`;
 }
 
-function packLanes(items) {
+// Greedy interval packing in pixel space, leaving room for each name label, so that
+// names do not overlap at the default zoom. Also records each bar's successor in its lane.
+const LABEL_PX = 5.6;
+function packLanes(items, x) {
   const lanes = [];
+  const last = [];
   const sorted = [...items].sort((a, b) => a.start - b.start);
   for (const it of sorted) {
-    // Leave room for the label so neighbouring names do not overlap at default zoom.
-    const pad = Math.max(30, it.name.length * 2.2);
-    let lane = lanes.findIndex((end) => end + 6 < it.start);
+    const left = x(it.start);
+    const right = Math.max(x(it.end), left + it.name.length * LABEL_PX + 8);
+    let lane = lanes.findIndex((end) => end + 4 < left);
     if (lane < 0) { lane = lanes.length; lanes.push(0); }
-    lanes[lane] = Math.max(it.end, it.start + pad);
+    lanes[lane] = right;
+    if (last[lane]) last[lane].next = it;
+    last[lane] = it;
     it.lane = lane;
+    it.next = null;
   }
   return lanes.length;
 }
@@ -75,21 +82,21 @@ function packLanes(items) {
 function buildChart(container, data, state, members) {
   const width = Math.max(700, container.clientWidth || 1100);
   const people = data.philosophers.filter((p) => p.start != null && p.end != null).map((p) => ({ ...p }));
-  const laneCount = packLanes(people);
   const laneH = 15;
   const top = 46;
-  const height = top + laneCount * laneH + 34;
   const minYear = Math.min(...people.map((p) => p.start), data.eras[0].start) - 20;
   const maxYear = new Date().getFullYear() + 10;
+  let height;
 
-  const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).attr('height', height);
+  const svg = d3.select(container).append('svg');
   const bandG = svg.append('g');
   const eventG = svg.append('g');
   const barG = svg.append('g');
-  const axisG = svg.append('g').attr('class', 'axis').attr('transform', `translate(0,${height - 30})`);
+  const axisG = svg.append('g').attr('class', 'axis');
 
   let x0;
   let x;
+  let zoom;
   const makeScale = () => {
     if (state.equal) {
       const bounds = [minYear, ...data.eras.slice(1).map((e) => e.start), maxYear];
@@ -99,8 +106,11 @@ function buildChart(container, data, state, members) {
       x0 = d3.scaleLinear().domain([minYear, maxYear]).range([10, width - 10]);
     }
     x = x0.copy();
+    height = top + packLanes(people, x0) * laneH + 34;
+    svg.attr('viewBox', `0 0 ${width} ${height}`).attr('height', height);
+    axisG.attr('transform', `translate(0,${height - 30})`);
+    zoom?.translateExtent([[0, 0], [width, height]]).extent([[0, 0], [width, height]]);
   };
-  makeScale();
 
   const eraColor = new Map(data.eras.map((e) => [e.id, e.color]));
   const muted = getComputedStyle(document.documentElement).getPropertyValue('--border');
@@ -143,20 +153,21 @@ function buildChart(container, data, state, members) {
     bars.select('text').attr('x', (d) => x(d.start) + 3).attr('y', laneH - 6)
       .attr('fill', (d) => (active(d) ? null : muted))
       .text((d) => {
-        const w = x(d.end) - x(d.start) + 60;
-        return w > d.name.length * 5.2 ? d.name : '';
+        const room = d.next ? x(d.next.start) - x(d.start) - 4 : Infinity;
+        return room > d.name.length * LABEL_PX ? d.name : '';
       });
 
     axisG.call(d3.axisBottom(x).ticks(Math.round(width / 100)).tickFormat((d) => fmtYear(Math.round(d))));
   }
 
-  const zoom = d3.zoom().scaleExtent([1, 60]).translateExtent([[0, 0], [width, height]]).extent([[0, 0], [width, height]])
+  makeScale();
+  zoom = d3.zoom().scaleExtent([1, 60]).translateExtent([[0, 0], [width, height]]).extent([[0, 0], [width, height]])
     .on('zoom', (e) => { x = e.transform.rescaleX(x0); redraw(); });
   svg.call(zoom);
 
   return {
     redraw,
-    rebuild() { makeScale(); svg.call(zoom.transform, d3.zoomIdentity); redraw(); },
+    rebuild() { makeScale(); barG.selectAll('*').remove(); svg.call(zoom.transform, d3.zoomIdentity); redraw(); },
     reset() { svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity); },
     zoomToEra(id) {
       const e = data.eras.find((d) => d.id === id);

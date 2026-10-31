@@ -254,3 +254,16 @@ select, input[type="text"], input[type="search"], textarea {
 .graph svg { width: 100%; height: 460px; display: block; }
 .graph .node text { font-size: 11px; fill: var(--text); pointer-events: none; }
 .graph .link { stroke: var(--border); }
+
+/* Phones: header wraps, nav scrolls horizontally, 16px gutters. */
+@media (max-width: 700px) {
+  .topbar { flex-wrap: wrap; gap: .5rem; padding: .5rem 16px; }
+  .nav { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .search { flex: 1; min-width: 0; }
+  .search input { width: 100%; }
+  .search-results { width: calc(100vw - 32px); right: auto; left: 0; }
+  main { padding: 1rem 16px 2.5rem; }
+  .profile-head { gap: .9rem; }
+  .avatar.lg { width: 3.6rem; height: 3.6rem; font-size: 1.6rem; }
+  .heatmap-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+}

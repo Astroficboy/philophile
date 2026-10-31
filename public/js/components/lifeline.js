@@ -8,7 +8,7 @@ export function renderLifeline(container, data, { onSelect } = {}) {
   const p = data.philosopher;
   const width = Math.max(680, container.clientWidth || 960);
   const laneH = 20;
-  const top = 120;
+  const top = 128;
   const margin = { left: 12, right: 12, bottom: 70 };
   const height = top + data.lanes.length * laneH + margin.bottom;
   const pad = Math.max(10, (data.range.end - data.range.start) * 0.04);
@@ -31,8 +31,8 @@ export function renderLifeline(container, data, { onSelect } = {}) {
   // Era bands behind everything.
   const eraG = svg.append('g');
   const lifeG = svg.append('g');
-  const laneG = svg.append('g');
   const eventG = svg.append('g');
+  const laneG = svg.append('g');
   const axisG = svg.append('g').attr('class', 'axis').attr('transform', `translate(0,${height - margin.bottom})`);
 
   const colour = { influence: css('--heat-2'), contemporary: css('--contemporary'), influenced: css('--influenced') };
@@ -45,7 +45,8 @@ export function renderLifeline(container, data, { onSelect } = {}) {
       .attr('y', 0).attr('height', height - margin.bottom).attr('fill', (d) => d.color).attr('opacity', 0.07);
     eraG.selectAll('text').data(data.eras.filter((e) => e.end > x.domain()[0] && e.start < x.domain()[1]), (d) => d.id)
       .join('text').attr('class', 'lane-label').attr('opacity', 0.6)
-      .attr('x', (d) => Math.max(x(d.start), margin.left) + 4).attr('y', 14).text((d) => d.name);
+      .attr('x', (d) => Math.max(x(d.start), margin.left) + 4).attr('y', 14)
+      .text((d) => (Math.min(x(d.end), width) - Math.max(x(d.start), margin.left) > d.name.length * 6 + 8 ? d.name : ''));
 
     // Life bar and milestones.
     lifeG.selectAll('*').remove();
@@ -60,10 +61,19 @@ export function renderLifeline(container, data, { onSelect } = {}) {
       .on('mousemove', (e, d) => showTip(`<strong>${esc(d.title)}</strong><br>${fmtYear(d.year)}`, e)).on('mouseleave', hideTip);
     ms.append('circle').attr('r', (d) => (d.kind === 'work' ? 5 : 4))
       .attr('fill', (d) => (d.kind === 'work' ? css('--surface') : css('--accent'))).attr('stroke', css('--accent')).attr('stroke-width', 2);
-    // Label works on alternating rows so neighbours do not collide.
-    ms.filter((d) => d.kind === 'work').append('text').attr('class', 'lane-label')
-      .attr('y', (_d, i) => (i % 2 ? 40 : 26)).attr('x', 0).attr('text-anchor', 'middle').attr('font-size', 10)
-      .text((d) => (d.title.length > 28 ? `${d.title.slice(0, 26)}…` : d.title));
+    // Label works on up to three rows below the bar; skip a label when there is no room
+    // (it stays available in the tooltip, and appears as you zoom in).
+    const rowsEnd = [-Infinity, -Infinity, -Infinity];
+    ms.filter((d) => d.kind === 'work').each(function (d) {
+      const label = d.title.length > 30 ? `${d.title.slice(0, 28)}…` : d.title;
+      const w = label.length * 5.4;
+      const cx = x(d.year);
+      const row = rowsEnd.findIndex((end) => end + 6 < cx - w / 2);
+      if (row < 0) return;
+      rowsEnd[row] = cx + w / 2;
+      d3.select(this).append('text').attr('class', 'lane-label').attr('text-anchor', 'middle').attr('font-size', 10)
+        .attr('y', 24 + row * 13).text(label);
+    });
 
     // Lanes.
     const lanes = laneG.selectAll('g.lane').data(data.lanes, (d) => d.id).join((enter) => {
@@ -90,7 +100,7 @@ export function renderLifeline(container, data, { onSelect } = {}) {
       g.append('circle').attr('r', 5).attr('fill', css('--event'));
       return g;
     });
-    ev.select('line').attr('x1', (d) => x(d.year)).attr('x2', (d) => x(d.year)).attr('y1', 80).attr('y2', height - margin.bottom);
+    ev.select('line').attr('x1', (d) => x(d.year)).attr('x2', (d) => x(d.year)).attr('y1', top - 6).attr('y2', height - margin.bottom);
     ev.select('circle').attr('cx', (d) => x(d.year)).attr('cy', height - margin.bottom + 34);
 
     axisG.call(d3.axisBottom(x).ticks(Math.round(width / 110)).tickFormat((d) => fmtYear(d)));
