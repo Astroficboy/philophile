@@ -1,0 +1,318 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Philophile Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+/* Layout: one wide layered diagram (client → server → disk, externals on the right), then the three request paths as ordered steps. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --fg: #1d2530;
+  --muted: #5b6676;
+  --line: #8a95a5;
+  --client: #2f6fb3;   --client-bg: #e8f0fa;
+  --server: #1f7a6b;   --server-bg: #e4f3ef;
+  --disk: #9a6a12;     --disk-bg: #fbf1dc;
+  --ext: #7a4fb0;      --ext-bg: #f0e9f9;
+  --heat: #c0392b;
+  --display: "Fraunces", Georgia, serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161c; --surface: #1a2029; --fg: #e3e8ef; --muted: #9aa6b6; --line: #6c7888;
+    --client: #7fb2ea; --client-bg: #1b2a3c; --server: #6fcfb9; --server-bg: #163029;
+    --disk: #e2b45c; --disk-bg: #2e2717; --ext: #b897e6; --ext-bg: #2a2138; --heat: #f07a68;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161c; --surface: #1a2029; --fg: #e3e8ef; --muted: #9aa6b6; --line: #6c7888;
+  --client: #7fb2ea; --client-bg: #1b2a3c; --server: #6fcfb9; --server-bg: #163029;
+  --disk: #e2b45c; --disk-bg: #2e2717; --ext: #b897e6; --ext-bg: #2a2138; --heat: #f07a68;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
+header h1 { font-family: var(--display); font-weight: 600; font-size: clamp(1.7rem, 4vw, 2.4rem); margin: 0 0 6px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 68ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid; display: inline-block; }
+.diagram { background: var(--surface); border-radius: 12px; border: 1px solid color-mix(in srgb, var(--line) 35%, transparent); overflow-x: auto; }
+.diagram svg { display: block; min-width: 940px; width: 100%; height: auto; }
+
+svg text { fill: var(--fg); font-family: var(--body); }
+svg .t { font-family: var(--mono); font-weight: 600; font-size: 13.5px; }
+svg .d { font-size: 11.5px; fill: var(--muted); }
+svg .layer { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+svg .lbl { font-size: 11px; fill: var(--muted); font-style: italic; }
+svg .edge { stroke: var(--line); stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+svg .edge.both { marker-start: url(#arrow-back); }
+svg #arrow path, svg #arrow-back path { fill: var(--line); }
+.L-client { fill: var(--client-bg); stroke: var(--client); }
+.L-server { fill: var(--server-bg); stroke: var(--server); }
+.L-disk { fill: var(--disk-bg); stroke: var(--disk); }
+.L-ext { fill: var(--ext-bg); stroke: var(--ext); }
+.outer { fill: none; stroke-width: 1.4; stroke-dasharray: 5 4; }
+.box { stroke-width: 1.4; }
+.tc-client { fill: var(--client) !important; } .tc-server { fill: var(--server) !important; }
+.tc-disk { fill: var(--disk) !important; } .tc-ext { fill: var(--ext) !important; }
+
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.35rem; margin: 0 0 4px; }
+.flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.flow { background: var(--surface); border-radius: 10px; padding: 18px 20px; border: 1px solid color-mix(in srgb, var(--line) 35%, transparent); min-width: 0; }
+.flow h3 { margin: 0 0 4px; font-size: 1rem; }
+.flow .route { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 10px; overflow-wrap: anywhere; }
+.flow ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: 14px; }
+code { font-family: var(--mono); font-size: .88em; background: color-mix(in srgb, var(--line) 16%, transparent); padding: 1px 5px; border-radius: 4px; }
+.heat { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.heat div { padding: 12px 14px; border-radius: 8px; background: var(--surface); border-left: 4px solid var(--c); font-size: 14px; }
+.heat strong { display: block; color: var(--c); font-family: var(--mono); font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Philophile architecture</h1>
+    <p>A single Node/Express process serves a vanilla-JS + D3 single-page app, merges curated data with the Stanford Encyclopedia index into one knowledge graph, and talks to a local Ollama model for tutoring. Nothing leaves your machine except fetches to plato.stanford.edu.</p>
+  </header>
+
+  <div class="legend" aria-label="Legend">
+    <span><i style="background:var(--client-bg);border-color:var(--client)"></i>Browser</span>
+    <span><i style="background:var(--server-bg);border-color:var(--server)"></i>Server modules</span>
+    <span><i style="background:var(--disk-bg);border-color:var(--disk)"></i>Files on disk</span>
+    <span><i style="background:var(--ext-bg);border-color:var(--ext)"></i>External services</span>
+    <span>→ calls / reads / writes</span>
+  </div>
+
+  <figure class="diagram" style="margin:0" aria-label="Architecture diagram">
+    <svg viewBox="0 0 1160 780" role="img" aria-labelledby="dg-title">
+      <title id="dg-title">Browser SPA calls the Express API; server modules read curated data, the SEP index and caches, and call plato.stanford.edu and a local Ollama model.</title>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="arrow-back" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z"/></marker>
+      </defs>
+
+      <!-- Browser layer -->
+      <rect class="outer" x="20" y="20" width="1120" height="152" rx="12" style="stroke:var(--client)"/>
+      <text class="layer tc-client" x="38" y="44">Browser · public/ (single-page app, hash router)</text>
+
+      <rect class="box L-client" x="38" y="58" width="430" height="100" rx="8"/>
+      <text class="t" x="52" y="80">views/</text>
+      <text class="d" x="52" y="100">home · philosophers (directory) · profile (7 tabs)</text>
+      <text class="d" x="52" y="116">timeline (global) · topics · topic (?with=philosopher)</text>
+      <text class="d" x="52" y="132">sep (any encyclopedia entry) · learn · settings</text>
+      <text class="d" x="52" y="148">routed by app.js on location.hash, loaded lazily</text>
+
+      <rect class="box L-client" x="484" y="58" width="370" height="100" rx="8"/>
+      <text class="t" x="498" y="80">components/</text>
+      <text class="d" x="498" y="100">heatmap.js — era map: heat grid + time map (D3)</text>
+      <text class="d" x="498" y="116">lifeline.js — zoomable personal timeline (D3)</text>
+      <text class="d" x="498" y="132">sep-reader.js · chat.js · quiz.js</text>
+      <text class="d" x="498" y="148">ai.js — renders streamed Markdown answers</text>
+
+      <rect class="box L-client" x="870" y="58" width="252" height="100" rx="8"/>
+      <text class="t" x="884" y="80">api.js · util.js</text>
+      <text class="d" x="884" y="100">fetch + response cache</text>
+      <text class="d" x="884" y="116">stream reader for tutor text</text>
+      <text class="d" x="884" y="132">D3 v7 (served from node_modules)</text>
+      <text class="d" x="884" y="148">progress in localStorage</text>
+
+      <!-- Browser ↔ server -->
+      <path class="edge both" d="M430 174 L430 212"/>
+      <text class="lbl" x="442" y="198">/api/* · JSON, and chunked text for tutor answers</text>
+
+      <!-- Server layer -->
+      <rect class="outer" x="20" y="216" width="836" height="344" rx="12" style="stroke:var(--server)"/>
+      <text class="layer tc-server" x="38" y="240">Node + Express · server/index.js (port 3000)</text>
+
+      <rect class="box L-server" x="38" y="252" width="800" height="58" rx="8"/>
+      <text class="t" x="52" y="271">routes/api.js</text>
+      <text class="d" x="52" y="288">/philosophers[/:id, /era-map, /timeline, /graph] · /topics[/:id?with=] · /timeline · /meta</text>
+      <text class="d" x="52" y="303">/sep/entry/:slug · /sep/sync · /ai/status · /ai/ask · /ai/connection · /ai/quiz · /ai/enrich/:id</text>
+
+      <path class="edge" d="M130 310 L130 340"/>
+      <path class="edge" d="M330 310 L330 340"/>
+      <path class="edge" d="M530 310 L530 340"/>
+      <path class="edge" d="M730 310 L730 340"/>
+
+      <!-- Row 1 -->
+      <rect class="box L-server" x="38" y="342" width="184" height="84" rx="8"/>
+      <text class="t" x="52" y="364">quiz.js</text>
+      <text class="d" x="52" y="384">offline multiple-choice</text>
+      <text class="d" x="52" y="400">questions from the graph</text>
+      <text class="d" x="52" y="416">(used when Ollama is down)</text>
+
+      <rect class="box L-server" x="238" y="342" width="184" height="84" rx="8" style="stroke-width:2.4"/>
+      <text class="t" x="252" y="364">knowledge.js</text>
+      <text class="d" x="252" y="384">merged graph, influences,</text>
+      <text class="d" x="252" y="400">era heat map, timelines,</text>
+      <text class="d" x="252" y="416">topic × philosopher view</text>
+
+      <rect class="box L-server" x="438" y="342" width="184" height="84" rx="8"/>
+      <text class="t" x="452" y="364">tutor.js</text>
+      <text class="d" x="452" y="384">builds grounded prompts:</text>
+      <text class="d" x="452" y="400">Q&amp;A, connections, quizzes,</text>
+      <text class="d" x="452" y="416">profile enrichment</text>
+
+      <rect class="box L-server" x="638" y="342" width="184" height="84" rx="8"/>
+      <text class="t" x="652" y="364">ollama.js</text>
+      <text class="d" x="652" y="384">streaming chat, JSON-schema</text>
+      <text class="d" x="652" y="400">output, picks closest</text>
+      <text class="d" x="652" y="416">installed gemma4 tag</text>
+
+      <path class="edge" d="M222 384 L238 384"/>
+      <path class="edge" d="M438 384 L422 384"/>
+      <path class="edge" d="M622 384 L638 384"/>
+      <path class="edge" d="M530 426 L530 454"/>
+      <path class="edge" d="M330 454 L330 426"/>
+      <text class="lbl" x="336" y="446">reload()</text>
+
+      <!-- Row 2 -->
+      <rect class="box L-server" x="38" y="456" width="184" height="84" rx="8"/>
+      <text class="t" x="52" y="478">config.js</text>
+      <text class="d" x="52" y="498">PORT · OLLAMA_HOST</text>
+      <text class="d" x="52" y="514">OLLAMA_MODEL (gemma4:12b)</text>
+      <text class="d" x="52" y="530">SEP_BASE · SEP_DELAY_MS</text>
+
+      <rect class="box L-server" x="238" y="456" width="184" height="84" rx="8"/>
+      <text class="t" x="252" y="478">sep-sync.js</text>
+      <text class="d" x="252" y="498">crawls table of contents,</text>
+      <text class="d" x="252" y="514">parses life dates, counts</text>
+      <text class="d" x="252" y="530">mentions → influences</text>
+
+      <rect class="box L-server" x="438" y="456" width="184" height="84" rx="8"/>
+      <text class="t" x="452" y="478">sep.js</text>
+      <text class="d" x="452" y="498">fetch + parse entries into</text>
+      <text class="d" x="452" y="514">sections; sanitises HTML,</text>
+      <text class="d" x="452" y="530">rewrites links in-app</text>
+
+      <rect class="box L-server" x="638" y="456" width="184" height="84" rx="8"/>
+      <text class="t" x="652" y="478">cache.js</text>
+      <text class="d" x="652" y="498">file cache under</text>
+      <text class="d" x="652" y="514">data/cache/&lt;bucket&gt;/</text>
+      <text class="d" x="652" y="530">with max-age check</text>
+
+      <path class="edge" d="M422 498 L438 498"/>
+      <path class="edge" d="M622 498 L638 498"/>
+
+      <!-- External -->
+      <text class="layer tc-ext" x="882" y="240">External</text>
+      <rect class="box L-ext" x="880" y="342" width="260" height="84" rx="8"/>
+      <text class="t" x="894" y="364">Ollama · localhost:11434</text>
+      <text class="d" x="894" y="384">model gemma4:12b (local)</text>
+      <text class="d" x="894" y="400">/api/tags · /api/chat</text>
+      <text class="d" x="894" y="416">runs on your own machine</text>
+
+      <rect class="box L-ext" x="880" y="456" width="260" height="84" rx="8"/>
+      <text class="t" x="894" y="478">plato.stanford.edu</text>
+      <text class="d" x="894" y="498">/contents.html (table of contents)</text>
+      <text class="d" x="894" y="514">/entries/&lt;slug&gt;/ (articles)</text>
+      <text class="d" x="894" y="530">only network dependency</text>
+
+      <path class="edge" d="M822 384 L880 384"/>
+      <path class="edge" d="M822 498 L880 498"/>
+      <text class="lbl" x="894" y="558">fetched on cache miss · 30-day TTL</text>
+
+      <!-- Disk layer -->
+      <rect class="outer" x="20" y="596" width="1120" height="164" rx="12" style="stroke:var(--disk)"/>
+      <text class="layer tc-disk" x="38" y="620">Files on disk</text>
+
+      <rect class="box L-disk" x="38" y="636" width="184" height="108" rx="8"/>
+      <text class="t" x="52" y="658">server/data/</text>
+      <text class="d" x="52" y="678">189 curated philosophers</text>
+      <text class="d" x="52" y="694">74 topics · 11 eras</text>
+      <text class="d" x="52" y="710">97 world events</text>
+      <text class="d" x="52" y="730">imported by knowledge.js</text>
+
+      <rect class="box L-disk" x="238" y="636" width="184" height="108" rx="8"/>
+      <text class="t" x="252" y="658">sep-index.json</text>
+      <text class="d" x="252" y="678">every SEP person entry:</text>
+      <text class="d" x="252" y="694">dates, summary, mentions,</text>
+      <text class="d" x="252" y="710">plus all topic articles</text>
+      <text class="d" x="252" y="730">read by knowledge.js</text>
+
+      <rect class="box L-disk" x="438" y="636" width="184" height="108" rx="8"/>
+      <text class="t" x="452" y="658">cache/enriched/</text>
+      <text class="d" x="452" y="678">AI-extracted profiles</text>
+      <text class="d" x="452" y="694">(ideas, works, topics,</text>
+      <text class="d" x="452" y="710">influences) per philosopher</text>
+      <text class="d" x="452" y="730">written by tutor.js</text>
+
+      <rect class="box L-disk" x="638" y="636" width="184" height="108" rx="8"/>
+      <text class="t" x="652" y="658">cache/sep/</text>
+      <text class="d" x="652" y="678">raw HTML of fetched</text>
+      <text class="d" x="652" y="694">encyclopedia pages</text>
+      <text class="d" x="652" y="710">(contents + entries)</text>
+      <text class="d" x="652" y="730">written by cache.js</text>
+
+      <path class="edge" d="M330 540 L330 636"/>
+      <text class="lbl" x="336" y="590">writes</text>
+      <path class="edge" d="M730 540 L730 636"/>
+      <text class="lbl" x="736" y="590">writes</text>
+
+      <text class="d" x="880" y="666">data/ is git-ignored apart</text>
+      <text class="d" x="880" y="682">from the curated source in</text>
+      <text class="d" x="880" y="698">server/data/. Delete data/cache/</text>
+      <text class="d" x="880" y="714">to force fresh fetches, or run</text>
+      <text class="d" x="880" y="730"><tspan style="font-family:var(--mono)">npm run sync -- --force</tspan>.</text>
+    </svg>
+  </figure>
+
+  <section>
+    <h2>Three request paths</h2>
+    <p style="color:var(--muted);margin:0 0 14px">How the main features move through the layers above.</p>
+    <div class="flows">
+      <article class="flow">
+        <h3>Era heat map</h3>
+        <div class="route">#/philosopher/kant/era-map → GET /api/philosophers/kant/era-map</div>
+        <ol>
+          <li><code>knowledge.eraMap()</code> sets a window from 40 years before birth to 10 after death.</li>
+          <li>Scores every philosopher, topic and event in the window (see the colour rules below).</li>
+          <li><code>heatmap.js</code> draws the tiles or the time map with D3.</li>
+          <li>Clicking a topic opens <code>#/topic/:id?with=kant</code>. Clicking a philosopher opens their profile with <code>?from=kant</code> and a connection banner.</li>
+        </ol>
+      </article>
+      <article class="flow">
+        <h3>Ask the tutor</h3>
+        <div class="route">POST /api/ai/ask → tutor.ask → ollama.chatStream</div>
+        <ol>
+          <li><code>tutor.js</code> collects curated facts from <code>knowledge.js</code>.</li>
+          <li>Loads the SEP entry through <code>sep.js</code> (cache first) and keeps the sections that best match the question.</li>
+          <li>Sends the system prompt, context and chat history to Ollama with streaming on.</li>
+          <li>Tokens flow back as chunked text; <code>ai.js</code> renders Markdown as they arrive.</li>
+        </ol>
+      </article>
+      <article class="flow">
+        <h3>Import every SEP philosopher</h3>
+        <div class="route">npm run sync, or POST /api/sep/sync from Settings</div>
+        <ol>
+          <li><code>sep-sync.js</code> reads <code>contents.html</code> and keeps labels shaped like names.</li>
+          <li>Fetches each candidate entry (400 ms apart) and parses dates from the preamble.</li>
+          <li>Counts how often each entry names earlier philosophers; these become inferred influences.</li>
+          <li>Writes <code>sep-index.json</code>, then <code>knowledge.reload()</code> merges it with the curated set.</li>
+        </ol>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>How the era map assigns colour</h2>
+    <p style="color:var(--muted);margin:0 0 14px">Computed in <code>knowledge.js</code> for each item around the chosen philosopher.</p>
+    <div class="heat">
+      <div style="--c:var(--heat)"><strong>Red · influence</strong>Direct influences from any century get a heat of 0.45, 0.72 or 1 by weight. Influences of influences inside the window get 0.22. A topic's heat combines its rank in the philosopher's own topics with the share of influences that carried it.</div>
+      <div style="--c:var(--client)"><strong>Blue · same era</strong>Active during the window with no recorded influence. Capped at 36 philosophers, curated ones and those closest in time first.</div>
+      <div style="--c:var(--ext)"><strong>Violet · influenced</strong>Later thinkers inside the window who list this philosopher as an influence.</div>
+      <div style="--c:var(--disk)"><strong>Amber · world event</strong>Events from the 97-entry dataset that fall inside the window. Shown for context, not clickable.</div>
+    </div>
+  </section>
+</div>
+
+</body></html>
